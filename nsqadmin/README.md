@@ -15,3 +15,9 @@ Read the [docs](http://nsq.io/components/nsqadmin.html)
  5. make changes (repeat step 5 if you make changes to any Go code)
  6. `$ go-bindata --pkg=nsqadmin --prefix=static/build static/build/...`
  7. commit other changes and `bindata.go`
+
+---
+
+**nsqadmin 注释**
+
+提供界面展示
