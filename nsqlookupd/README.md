@@ -7,7 +7,6 @@ Read the [docs](http://nsq.io/components/nsqlookupd.html)
 
 
 ---
-参考文章：[NSQ 源码分析之 nsqlookupd](https://juejin.im/entry/5850b63d1b69e6006c75f2c2)
 
 nsqlookupd是nsq管理集群拓扑信息以及用于注册发现的nsqd服务
 
@@ -22,3 +21,6 @@ nsqd　目录存放了关于nsqd源码；
 nsqlookupd　目录存放了　nsqlookupd的源码；
 ```
 
+**参考文章：**
+
+[NSQ 源码分析之 nsqlookupd](https://juejin.im/entry/5850b63d1b69e6006c75f2c2)

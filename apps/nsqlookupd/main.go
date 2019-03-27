@@ -69,11 +69,13 @@ func (p *program) Start() error {
 	flagSet := nsqlookupdFlagSet(opts)
 	flagSet.Parse(os.Args[1:])
 
+	// version 查看版本并退出
 	if flagSet.Lookup("version").Value.(flag.Getter).Get().(bool) {
 		fmt.Println(version.String("nsqlookupd"))
 		os.Exit(0)
 	}
 
+	// 解析config至cfg中
 	var cfg map[string]interface{}
 	configFile := flagSet.Lookup("config").Value.String()
 	if configFile != "" {
@@ -83,14 +85,23 @@ func (p *program) Start() error {
 		}
 	}
 
+	// 利用从用户输入的配置中的设置，替换 opts 中的参数
 	options.Resolve(opts, flagSet, cfg)
+
+	// 初始化 nsqlookupd
 	nsqlookupd, err := nsqlookupd.New(opts)
 	if err != nil {
 		logFatal("failed to instantiate nsqlookupd", err)
 	}
+
+	// 给 p 的 nsqlookupd 赋值
 	p.nsqlookupd = nsqlookupd
 
 	go func() {
+		// nsqlookupd模块启动的主体函数；
+		// 当这个Start函数返回之后，整个程序阻塞在svc.Run方法内部的信号channel上；
+		// 当我们向这个程序发送SIGINT和SIGTERM信号时，
+		// svc.Run函数调用program.Stop方法终止nsqlookupd进程。
 		err := p.nsqlookupd.Main()
 		if err != nil {
 			p.Stop()
@@ -102,6 +113,7 @@ func (p *program) Start() error {
 }
 
 func (p *program) Stop() error {
+	// 利用 Sync.Once 实现类似单例模式的控制
 	p.once.Do(func() {
 		p.nsqlookupd.Exit()
 	})
