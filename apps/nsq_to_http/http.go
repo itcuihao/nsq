@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/nsqio/nsq/internal/version"
+	"github.com/itcuihao/nsq-note/internal/version"
 )
 
 var httpclient *http.Client

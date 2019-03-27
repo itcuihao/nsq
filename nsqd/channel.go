@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/nsqio/go-diskqueue"
-	"github.com/nsqio/nsq/internal/lg"
-	"github.com/nsqio/nsq/internal/pqueue"
-	"github.com/nsqio/nsq/internal/quantile"
+	"github.com/itcuihao/nsq-note/internal/lg"
+	"github.com/itcuihao/nsq-note/internal/pqueue"
+	"github.com/itcuihao/nsq-note/internal/quantile"
 )
 
 type Consumer interface {

@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/nsqio/nsq/internal/http_api"
-	"github.com/nsqio/nsq/internal/lg"
-	"github.com/nsqio/nsq/internal/protocol"
-	"github.com/nsqio/nsq/internal/version"
+	"github.com/itcuihao/nsq-note/internal/http_api"
+	"github.com/itcuihao/nsq-note/internal/lg"
+	"github.com/itcuihao/nsq-note/internal/protocol"
+	"github.com/itcuihao/nsq-note/internal/version"
 )
 
 var boolParams = map[string]bool{

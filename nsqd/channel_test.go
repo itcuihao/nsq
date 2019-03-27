@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nsqio/nsq/internal/test"
+	"github.com/itcuihao/nsq-note/internal/test"
 )
 
 // ensure that we can push a message through a topic and get it out of a channel

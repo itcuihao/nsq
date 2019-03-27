@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/nsqio/go-nsq"
-	"github.com/nsqio/nsq/internal/version"
+	"github.com/itcuihao/nsq-note/internal/version"
 )
 
 func connectCallback(n *NSQD, hostname string) func(*lookupPeer) {

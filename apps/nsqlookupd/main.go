@@ -9,11 +9,11 @@ import (
 	"syscall"
 
 	"github.com/BurntSushi/toml"
+	"github.com/itcuihao/nsq-note/internal/lg"
+	"github.com/itcuihao/nsq-note/internal/version"
+	"github.com/itcuihao/nsq-note/nsqlookupd"
 	"github.com/judwhite/go-svc/svc"
 	"github.com/mreiferson/go-options"
-	"github.com/nsqio/nsq/internal/lg"
-	"github.com/nsqio/nsq/internal/version"
-	"github.com/nsqio/nsq/nsqlookupd"
 )
 
 func nsqlookupdFlagSet(opts *nsqlookupd.Options) *flag.FlagSet {
@@ -37,6 +37,7 @@ func nsqlookupdFlagSet(opts *nsqlookupd.Options) *flag.FlagSet {
 	return flagSet
 }
 
+// nsqlookupd 启动服务实例
 type program struct {
 	once       sync.Once
 	nsqlookupd *nsqlookupd.NSQLookupd
@@ -44,10 +45,15 @@ type program struct {
 
 func main() {
 	prg := &program{}
+
+	// svc.run方法接收一个实现了init,start和stop方法的服务实例，
+	// 以及若干信号；信号用于控制该服务的优雅终止，而服务实例用于开启nsqlookupd服务
 	if err := svc.Run(prg, syscall.SIGINT, syscall.SIGTERM); err != nil {
 		logFatal("%s", err)
 	}
 }
+
+// 实现 Init, Start, Stop 方法
 
 func (p *program) Init(env svc.Environment) error {
 	if env.IsWindowsService() {

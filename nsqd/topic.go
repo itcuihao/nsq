@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/nsqio/go-diskqueue"
-	"github.com/nsqio/nsq/internal/lg"
-	"github.com/nsqio/nsq/internal/quantile"
-	"github.com/nsqio/nsq/internal/util"
+	"github.com/itcuihao/nsq-note/internal/lg"
+	"github.com/itcuihao/nsq-note/internal/quantile"
+	"github.com/itcuihao/nsq-note/internal/util"
 )
 
 type Topic struct {

@@ -7,10 +7,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/nsqio/nsq/internal/http_api"
-	"github.com/nsqio/nsq/internal/protocol"
-	"github.com/nsqio/nsq/internal/util"
-	"github.com/nsqio/nsq/internal/version"
+	"github.com/itcuihao/nsq-note/internal/http_api"
+	"github.com/itcuihao/nsq-note/internal/protocol"
+	"github.com/itcuihao/nsq-note/internal/util"
+	"github.com/itcuihao/nsq-note/internal/version"
 )
 
 type NSQLookupd struct {

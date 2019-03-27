@@ -4,7 +4,7 @@
 # 2. tag that commit
 # 3. use dist.sh to produce tar.gz for all platforms
 # 4. upload *.tar.gz to bitly s3 bucket
-# 5. docker push nsqio/nsq
+# 5. docker push itcuihao/nsq-note
 # 6. push to nsqio/master
 # 7. update the release metadata on github / upload the binaries there too
 # 8. update nsqio/nsqio.github.io/_posts/2014-03-01-installing.md
@@ -41,8 +41,8 @@ for os in linux darwin freebsd windows; do
     sudo rm -r $BUILD
 done
 
-docker build -t nsqio/nsq:v$version .
+docker build -t itcuihao/nsq-note:v$version .
 if [[ ! $version == *"-"* ]]; then
-    echo "Tagging nsqio/nsq:v$version as the latest release."
-    docker tag nsqio/nsq:v$version nsqio/nsq:latest
+    echo "Tagging itcuihao/nsq-note:v$version as the latest release."
+    docker tag itcuihao/nsq-note:v$version itcuihao/nsq-note:latest
 fi
