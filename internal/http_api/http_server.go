@@ -19,6 +19,7 @@ func (l logWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// 实例化http.Server模块，然后调用server.Server(listner)函数开启http服务；
 func Serve(listener net.Listener, handler http.Handler, proto string, logf lg.AppLogFunc) error {
 	logf(lg.INFO, "%s: listening on %s", proto, listener.Addr())
 

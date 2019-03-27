@@ -21,22 +21,35 @@ type LookupProtocolV1 struct {
 	ctx *Context
 }
 
+// Protocol V1 版本
 func (p *LookupProtocolV1) IOLoop(conn net.Conn) error {
 	var err error
 	var line string
 
 	client := NewClientV1(conn)
 	reader := bufio.NewReader(client)
+
+	// 客户端的goroutine就在这个循环中不断执行用户(其实就是nsqd服务)请求；过程如下:
+	// 1. 读取用户请求；
+	// 2. 将用户请求字符串按空格切割成字符串数组；
+	// 3. 调用LookupProtocolV1.Exec方法，执行具体请求；
 	for {
+
+		// 读取用户请求数据
 		line, err = reader.ReadString('\n')
 		if err != nil {
 			break
 		}
 
+		// 去掉两头的空格
 		line = strings.TrimSpace(line)
+
+		// 按空格分割用户请求数据，params存储的就是用户请求命令以及参数
 		params := strings.Split(line, " ")
 
 		var response []byte
+
+		// 执行请求并返回结果
 		response, err = p.Exec(client, reader, params)
 		if err != nil {
 			ctx := ""
@@ -116,6 +129,7 @@ func getTopicChan(command string, params []string) (string, string, error) {
 	return topicName, channelName, nil
 }
 
+// REGISTER 当nsqd创建一个topic或者channel时，向nsqlookupd发送REGISTER请求，在nsqlookupd上更新当前nsqd的topic或者channel信息；
 func (p *LookupProtocolV1) REGISTER(client *ClientV1, reader *bufio.Reader, params []string) ([]byte, error) {
 	if client.peerInfo == nil {
 		return nil, protocol.NewFatalClientErr(nil, "E_INVALID", "client must IDENTIFY")
@@ -142,6 +156,9 @@ func (p *LookupProtocolV1) REGISTER(client *ClientV1, reader *bufio.Reader, para
 	return []byte("OK"), nil
 }
 
+// UNREGISTER 当nsqd删除一个topic或者channel时，向nsqlookupd发送UNREGISTER请求，
+// 在nsqlookupd上更新当前nsqd的topic或者channel信息；
+// nsqd的信息是保存在registration_db这样的实例里面的
 func (p *LookupProtocolV1) UNREGISTER(client *ClientV1, reader *bufio.Reader, params []string) ([]byte, error) {
 	if client.peerInfo == nil {
 		return nil, protocol.NewFatalClientErr(nil, "E_INVALID", "client must IDENTIFY")
@@ -191,6 +208,7 @@ func (p *LookupProtocolV1) UNREGISTER(client *ClientV1, reader *bufio.Reader, pa
 	return []byte("OK"), nil
 }
 
+// IDENTITY 当nsqd第一次连接nsqlookupd时，发送IDENTITY，验证自己身份；
 func (p *LookupProtocolV1) IDENTIFY(client *ClientV1, reader *bufio.Reader, params []string) ([]byte, error) {
 	var err error
 
@@ -211,6 +229,7 @@ func (p *LookupProtocolV1) IDENTIFY(client *ClientV1, reader *bufio.Reader, para
 	}
 
 	// body is a json structure with producer information
+	// body是一个带有生产者信息的json结构
 	peerInfo := PeerInfo{id: client.RemoteAddr().String()}
 	err = json.Unmarshal(body, &peerInfo)
 	if err != nil {
@@ -254,6 +273,7 @@ func (p *LookupProtocolV1) IDENTIFY(client *ClientV1, reader *bufio.Reader, para
 	return response, nil
 }
 
+// PING nsqd每隔一段时间都会向nsqlookupd发送心跳，表明自己还活着；
 func (p *LookupProtocolV1) PING(client *ClientV1, params []string) ([]byte, error) {
 	if client.peerInfo != nil {
 		// we could get a PING before other commands on the same client connection

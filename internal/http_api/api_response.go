@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/itcuihao/nsq-note/internal/lg"
+	"github.com/julienschmidt/httprouter"
 )
 
 type Decorator func(APIHandler) APIHandler
@@ -104,6 +104,8 @@ func RespondV1(w http.ResponseWriter, code int, data interface{}) {
 	w.Write(response)
 }
 
+// 这个函数其实就是一个装饰器，第一个参数为需要被装饰的视图函数，
+// 从第二参数开始，都是装饰函数，最后返回装饰好的视图函数
 func Decorate(f APIHandler, ds ...Decorator) httprouter.Handle {
 	decorated := f
 	for _, decorate := range ds {

@@ -6,17 +6,24 @@ import (
 	"net/http/pprof"
 	"sync/atomic"
 
-	"github.com/julienschmidt/httprouter"
 	"github.com/itcuihao/nsq-note/internal/http_api"
 	"github.com/itcuihao/nsq-note/internal/protocol"
 	"github.com/itcuihao/nsq-note/internal/version"
+	"github.com/julienschmidt/httprouter"
 )
 
+// httpServer有两个成员属性，
+// context，用于传递nsqlookupd地址，
+// httprouter实例，用于定义路由以及提供路由查找入口
 type httpServer struct {
 	ctx    *Context
 	router http.Handler
 }
 
+// 提供了路由功能
+// nsqlookupd的http服务路由使用的是开源框架httprouter；
+// httprouter路由使用radix树来存储路由信息，路由查找上效率高，
+// 同时提供一些其他优秀特性，因此很受欢迎，gin web框架使用的就是httprouter路由
 func newHTTPServer(ctx *Context) *httpServer {
 	log := http_api.Log(ctx.nsqlookupd.logf)
 

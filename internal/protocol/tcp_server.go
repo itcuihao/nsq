@@ -19,8 +19,12 @@ func TCPServer(listener net.Listener, handler TCPHandler, logf lg.AppLogFunc) er
 	for {
 		clientConn, err := listener.Accept()
 		if err != nil {
+
+			// 如果是暂时的错误，继续
 			if nerr, ok := err.(net.Error); ok && nerr.Temporary() {
 				logf(lg.WARN, "temporary Accept() failure - %s", err)
+
+				// 恢复 groutine
 				runtime.Gosched()
 				continue
 			}
@@ -30,6 +34,8 @@ func TCPServer(listener net.Listener, handler TCPHandler, logf lg.AppLogFunc) er
 			}
 			break
 		}
+
+		// 开启新的 goroutine 调用 TCPHandler 接口的 Handle 接口
 		go handler.Handle(clientConn)
 	}
 
