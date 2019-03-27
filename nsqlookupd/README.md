@@ -27,6 +27,11 @@ NSQ提供了三大组件以及一些工具，三大组件为:
 nqsd NSQ主要组件，用于存储消息以及分发消息；
 nsqlookupd 用于管理nsqd集群拓扑，提供查询nsqd主机地址的服务以及服务最终一致性；
 nsqadmin 用于管理以及查看集群中的topic,channel,node等等；
+
+简化一下：
+nsqd：队列数据存储
+nsqlookup：管理nsqd节点，服务发现
+nsqadmin：nsq的可视化
 ```
 
 ```
