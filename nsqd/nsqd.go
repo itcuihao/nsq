@@ -319,6 +319,11 @@ func writeSyncFile(fn string, data []byte) error {
 	return err
 }
 
+// LoadMetadata 过程为：
+// 先使用atomic库加锁
+// 读取以node id的文件，以及默认文件，比对二者，并从文件中获取数据
+// 将数据json 解析出meta 结构
+// 遍历meta，获取topic name以及chanel name，对需要暂停的topic/chanel 进行暂停操作
 func (n *NSQD) LoadMetadata() error {
 	atomic.StoreInt32(&n.isLoading, 1)
 	defer atomic.StoreInt32(&n.isLoading, 0)
@@ -363,6 +368,9 @@ func (n *NSQD) LoadMetadata() error {
 	return nil
 }
 
+// PersistMetadata()过程为：
+// 根据nsqd 结构获取对应的topic和channel
+// 将topic和channel 持久化到文件中
 func (n *NSQD) PersistMetadata() error {
 	// persist metadata about what topics/channels we have, across restarts
 	fileName := newMetadataFile(n.getOpts())

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/judwhite/go-svc/svc"
-	"github.com/mreiferson/go-options"
 	"github.com/itcuihao/nsq-note/internal/lg"
 	"github.com/itcuihao/nsq-note/internal/version"
 	"github.com/itcuihao/nsq-note/nsqd"
+	"github.com/judwhite/go-svc/svc"
+	"github.com/mreiferson/go-options"
 )
 
 type program struct {
@@ -39,6 +39,8 @@ func (p *program) Init(env svc.Environment) error {
 }
 
 func (p *program) Start() error {
+
+	// 初始化 nsqd
 	opts := nsqd.NewOptions()
 
 	flagSet := nsqdFlagSet(opts)
@@ -68,6 +70,7 @@ func (p *program) Start() error {
 	}
 	p.nsqd = nsqd
 
+	// 加载数据
 	err = p.nsqd.LoadMetadata()
 	if err != nil {
 		logFatal("failed to load metadata - %s", err)
