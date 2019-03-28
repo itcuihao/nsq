@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nsqio/go-diskqueue"
 	"github.com/itcuihao/nsq-note/internal/lg"
 	"github.com/itcuihao/nsq-note/internal/quantile"
 	"github.com/itcuihao/nsq-note/internal/util"
+	"github.com/nsqio/go-diskqueue"
 )
 
 type Topic struct {
@@ -102,12 +102,14 @@ func (t *Topic) Exiting() bool {
 // for the given Topic
 func (t *Topic) GetChannel(channelName string) *Channel {
 	t.Lock()
+	//获取topic的channel，如果之前没有是新建的，则通知channelUpdateChan 去刷新订阅状态
 	channel, isNew := t.getOrCreateChannel(channelName)
 	t.Unlock()
 
 	if isNew {
 		// update messagePump state
 		select {
+		//通知去刷新订阅状态，如果没有channel了就不用发布了
 		case t.channelUpdateChan <- 1:
 		case <-t.exitChan:
 		}
@@ -118,6 +120,8 @@ func (t *Topic) GetChannel(channelName string) *Channel {
 
 // this expects the caller to handle locking
 func (t *Topic) getOrCreateChannel(channelName string) (*Channel, bool) {
+	///获取一个channel，如果没有就新建它
+	//调用方已经对topic加锁了t.Lock()， 所以不需要加锁
 	channel, ok := t.channelMap[channelName]
 	if !ok {
 		deleteCallback := func(c *Channel) {

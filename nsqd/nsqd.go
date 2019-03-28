@@ -242,6 +242,8 @@ func (n *NSQD) RemoveClient(clientID int64) {
 }
 
 func (n *NSQD) Main() error {
+
+	// nsqd的上下文
 	ctx := &context{n}
 
 	exitCh := make(chan error)
