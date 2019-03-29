@@ -33,12 +33,16 @@ type protocolV2 struct {
 	ctx *context
 }
 
+// 每一个生产者都会单独创建一个IOLoop协程，
+// 进行同步（实际上异步）的处理，首先会创建messagePump协程做后台订阅，发送任务。
 func (p *protocolV2) IOLoop(conn net.Conn) error {
 	var err error
 	var line []byte
 	var zeroTime time.Time
 
+	//nsqd/tcp.go 的tcpServer.Handle 在读取前面4个字节的版本后调用这里，开始去读取客户端请求然后处理的过程，
 	clientID := atomic.AddInt64(&p.ctx.nsqd.clientIDSequence, 1)
+	// 初始化client结构
 	client := newClientV2(clientID, conn, p.ctx)
 	p.ctx.nsqd.AddClient(client.ID, client)
 
@@ -47,10 +51,14 @@ func (p *protocolV2) IOLoop(conn net.Conn) error {
 	// goroutine local state derived from client attributes
 	// and avoid a potential race with IDENTIFY (where a client
 	// could have changed or disabled said attributes)
+	//上面注释说了，这里做同步的原因在于，需要确保messagePump 里面的初始化完成在进行下面的操作，
+	//因为当前客户端在后面可能修改相关的数据。
+	//消息的订阅发布工作在辅助的messagePump携程处理，下面创建之
 	messagePumpStartedChan := make(chan bool)
 	go p.messagePump(client, messagePumpStartedChan)
 	<-messagePumpStartedChan
 
+	//开始循环读取客户端请求然后解析参数，进行处理, 这个工作在客户端的主协程处理
 	for {
 		if client.HeartbeatInterval > 0 {
 			client.SetReadDeadline(time.Now().Add(client.HeartbeatInterval * 2))
@@ -81,6 +89,8 @@ func (p *protocolV2) IOLoop(conn net.Conn) error {
 		p.ctx.nsqd.logf(LOG_DEBUG, "PROTOCOL(V2): [%s] %s", client, params)
 
 		var response []byte
+
+		// 执行命令
 		response, err = p.Exec(client, params)
 		if err != nil {
 			ctx := ""
@@ -122,6 +132,7 @@ func (p *protocolV2) IOLoop(conn net.Conn) error {
 	return err
 }
 
+// SendMessage 将消息+msgid发送给消费者
 func (p *protocolV2) SendMessage(client *clientV2, msg *Message) error {
 	p.ctx.nsqd.logf(LOG_DEBUG, "PROTOCOL(V2): writing msg(%s) to client(%s) - %s", msg.ID, client, msg.Body)
 	var buf = &bytes.Buffer{}
@@ -199,6 +210,7 @@ func (p *protocolV2) Exec(client *clientV2, params [][]byte) ([]byte, error) {
 	return nil, protocol.NewFatalClientErr(nil, "E_INVALID", fmt.Sprintf("invalid command %s", params[0]))
 }
 
+// 消费者启动后台协程protocolV2.messagePump订阅c.SubEventChan 并得知channel有订阅消息；
 func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	var err error
 	var memoryMsgChan chan *Message
@@ -210,6 +222,7 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 	var flusherChan <-chan time.Time
 	var sampleRate int32
 
+	//subEventChan 是客户端有订阅行为的通知channel，订阅一次后会重置为null。
 	subEventChan := client.SubEventChan
 	identifyEventChan := client.IdentifyEventChan
 	outputBufferTicker := time.NewTicker(client.OutputBufferTimeout)
@@ -272,6 +285,10 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 		case <-client.ReadyStateChan:
 		case subChannel = <-subEventChan:
 			// you can't SUB anymore
+			//当客户端发送了SUB操作后，会通过这个管道，塞入我所应该订阅的topic，
+			// 然后这里就得到了对应应该订阅的channel，
+			//然后就在上面的循环中设置对应的memoryMsgChan 或者backend.ReadChan() 进行监听
+			//所以nsq是通过前台跟客户端交互协程通知后台消息循环协程，你需要订阅一个新的channel并且关注其事件。
 			subEventChan = nil
 		case identifyData := <-identifyEventChan:
 			// you can't IDENTIFY anymore
@@ -319,11 +336,13 @@ func (p *protocolV2) messagePump(client *clientV2, startedChan chan bool) {
 			}
 			flushed = false
 		case msg := <-memoryMsgChan:
+			// 待生产者调用后，其中一个client会得到消息：msg := <-memoryMsgChan;
 			if sampleRate > 0 && rand.Int31n(100) > sampleRate {
 				continue
 			}
 			msg.Attempts++
 
+			// 客户端记录StartInFlightTimeout的发送中消息队列，进行超时处理
 			subChannel.StartInFlightTimeout(msg, client.ID, msgTimeout)
 			client.SendingMessage()
 			err = p.SendMessage(client, msg)
@@ -579,6 +598,8 @@ func (p *protocolV2) CheckAuth(client *clientV2, cmd, topicName, channelName str
 	return nil
 }
 
+// 消费者使用TCP协议，发送SUB topic channel 命令订阅到某个channel上，
+// 记录其client.Channel = channel，通知c.SubEventChan；
 func (p *protocolV2) SUB(client *clientV2, params [][]byte) ([]byte, error) {
 	if atomic.LoadInt32(&client.State) != stateInit {
 		return nil, protocol.NewFatalClientErr(nil, "E_INVALID", "cannot SUB in current state")
@@ -608,6 +629,7 @@ func (p *protocolV2) SUB(client *clientV2, params [][]byte) ([]byte, error) {
 		return nil, err
 	}
 
+	// 将获取到的 topic/channel 加入到 client 队列
 	// This retry-loop is a work-around for a race condition, where the
 	// last client can leave the channel between GetChannel() and AddClient().
 	// Avoid adding a client to an ephemeral channel / topic which has started exiting.
@@ -629,8 +651,13 @@ func (p *protocolV2) SUB(client *clientV2, params [][]byte) ([]byte, error) {
 		break
 	}
 	atomic.StoreInt32(&client.State, stateSubscribed)
+
+	// 设置本client说订阅的channel，
+	// 这样接下来的SubEventChan就会由当前clienid开启的后台协程来订阅这个channel的消息
+	//而这个channel，就是topic-&gt;channel结构，里面能找到对应channel的订阅管道
 	client.Channel = channel
 	// update message pump
+	//通知后台订阅协程来订阅消息,包括内存管道和磁盘
 	client.SubEventChan <- channel
 
 	return okBytes, nil
@@ -673,6 +700,7 @@ func (p *protocolV2) RDY(client *clientV2, params [][]byte) ([]byte, error) {
 	return nil, nil
 }
 
+// 消费者收到msgid后，发送FIN+msgid通知服务器成功投递消息，可以清空消息了；
 func (p *protocolV2) FIN(client *clientV2, params [][]byte) ([]byte, error) {
 	state := atomic.LoadInt32(&client.State)
 	if state != stateSubscribed && state != stateClosing {
@@ -688,6 +716,8 @@ func (p *protocolV2) FIN(client *clientV2, params [][]byte) ([]byte, error) {
 		return nil, protocol.NewFatalClientErr(nil, "E_INVALID", err.Error())
 	}
 
+	//客户端发送FIN 某条消息来FinishMessage结束消息倒计时，成功投递
+	//结束消息倒计时，投递完成
 	err = client.Channel.FinishMessage(client.ID, *id)
 	if err != nil {
 		return nil, protocol.NewClientErr(err, "E_FIN_FAILED",

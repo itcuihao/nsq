@@ -42,6 +42,7 @@ type Topic struct {
 	ctx *context
 }
 
+//初始化一个topic结构，并且设置其backend持久化结构，然后开启消息监听协程messagePump, 通知lookupd
 // Topic constructor
 func NewTopic(topicName string, ctx *context, deleteCallback func(*Topic)) *Topic {
 	t := &Topic{
@@ -78,8 +79,10 @@ func NewTopic(topicName string, ctx *context, deleteCallback func(*Topic)) *Topi
 		)
 	}
 
+	//异步开启消息循环，这是最重要的异步，开启了一个新的携程处理
 	t.waitGroup.Wrap(t.messagePump)
 
+	//通知lookupd有新的topic产生了
 	t.ctx.nsqd.Notify(t)
 
 	return t
@@ -218,10 +221,15 @@ func (t *Topic) PutMessages(msgs []*Message) error {
 	return nil
 }
 
+// topic.PutMessage函数实际上就是topic.put，
+//  后者功能很简单，将消息放入t.memoryMsgChan或者磁盘后就返回了。客户端流程结束
 func (t *Topic) put(m *Message) error {
 	select {
+	//将这条消息直接塞入内存管道
 	case t.memoryMsgChan <- m:
 	default:
+		//如果内存消息管道满了(memoryMsgChan的容量由 getOpts().MemQueueSize设置)，
+		// 那么就放入到后面的持久化存储里面
 		b := bufferPoolGet()
 		err := writeMessageToBackend(b, m, t.backend)
 		bufferPoolPut(b)
@@ -240,6 +248,9 @@ func (t *Topic) Depth() int64 {
 	return int64(len(t.memoryMsgChan)) + t.backend.Depth()
 }
 
+// 订阅了内存和磁盘队列消息，
+// 这样在上面第二步“topic.PutMessage 到 topic.memoryMsgChan”之后，
+// 下面的select就会检测到有消息到来：
 // messagePump selects over the in-memory and backend queue and
 // writes messages to every channel for this topic
 func (t *Topic) messagePump() {
@@ -268,7 +279,10 @@ func (t *Topic) messagePump() {
 		chans = append(chans, c)
 	}
 	t.RUnlock()
+
+	// topic当前有channel，那接下来监听内存和磁盘channel的消息。
 	if len(chans) > 0 && !t.IsPaused() {
+		//GetTopic后面去获取lookupdHTTPAddrs的原因，其实是为了尽量别丢消息
 		memoryMsgChan = t.memoryMsgChan
 		backendChan = t.backend.ReadChan()
 	}
@@ -311,6 +325,7 @@ func (t *Topic) messagePump() {
 			goto exit
 		}
 
+		// 有新消息来了, 那么遍历channel，调用PutMessage 发消息
 		for i, channel := range chans {
 			chanMsg := msg
 			// copy the message because each channel
@@ -323,9 +338,12 @@ func (t *Topic) messagePump() {
 				chanMsg.deferred = msg.deferred
 			}
 			if chanMsg.deferred != 0 {
+				//如果是defered延迟投递的消息，那么放入特殊的队列
 				channel.PutMessageDeferred(chanMsg, chanMsg.deferred)
 				continue
 			}
+
+			//立即投递到channel里面
 			err := channel.PutMessage(chanMsg)
 			if err != nil {
 				t.ctx.nsqd.logf(LOG_ERROR,
